@@ -78,15 +78,22 @@ impl L1BlockInfoTx {
             scalar[28..32].try_into().map_err(|_| BlockInfoError::BaseFeeScalar)?,
         );
 
+        tracing::info!("l1_config: {:?}", l1_config);
+
         // Determine the blob fee configuration based on the timestamp.
         // We start with the scheduled blob fee parameters, and then check for the osaka and prague
         // parameters.
         let blob_fee_params = l1_config.blob_schedule_blob_params();
-
+        tracing::info!("blob_fee_params: {:?}", blob_fee_params);
+        tracing::info!("l1_header: {:?}", l1_header);
         let blob_fee_config =
             match blob_fee_params.active_scheduled_params_at_timestamp(l1_header.timestamp) {
-                Some(blob_fee_param) => *blob_fee_param,
+                Some(blob_fee_param) => {
+                  tracing::info!("blob_fee_param: {:?}", blob_fee_param);
+                  *blob_fee_param
+                }
                 None if l1_config.osaka_time.is_some_and(|time| time <= l1_header.timestamp) => {
+                    tracing::info!("osaka");
                     BlobParams::osaka()
                 }
                 None if l1_config
@@ -102,12 +109,18 @@ impl L1BlockInfoTx {
                     (rollup_config.hardforks.pectra_blob_schedule_time.is_none() ||
                         rollup_config.is_pectra_blob_schedule_active(l1_header.timestamp)) =>
                 {
+                    tracing::info!("prague");
                     BlobParams::prague()
                 }
-                _ => BlobParams::cancun(),
+                _ => {
+                  tracing::info!("cancun");
+                  BlobParams::cancun()
+                }
             };
 
+        tracing::info!("blob_fee_config: {:?}", blob_fee_config);
         let blob_base_fee = l1_header.blob_fee(blob_fee_config).unwrap_or(1);
+        tracing::info!("blob_base_fee: {:?}", blob_base_fee);
         let block_hash = l1_header.hash_slow();
         let base_fee = l1_header.base_fee_per_gas.unwrap_or(0);
 
